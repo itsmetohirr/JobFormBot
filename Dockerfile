@@ -23,9 +23,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY bot.py ./
 
-# Optional: copy service account file if you plan to bake it into image
-COPY creds.json /app/creds.json
-
 # The bot reads configuration from environment variables (.env can be mounted at runtime)
 # Example run:
 #   docker run --env-file ./.env --name jobformbot ghcr.io/your/image:tag

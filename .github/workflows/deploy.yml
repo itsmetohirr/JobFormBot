@@ -73,6 +73,7 @@ jobs:
               --name "$CONTAINER_NAME" \
               --restart unless-stopped \
               --env-file /home/ubuntu/JobFormBot/.env \
+              -e GOOGLE_SERVICE_ACCOUNT_JSON='${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' \
               "$IMAGE"
 
             echo "Pruning unused images..."
