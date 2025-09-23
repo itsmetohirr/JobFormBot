@@ -472,7 +472,18 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 		)
 		for admin_chat_id in ADMIN_CHAT_IDS:
 			try:
-				await message.bot.send_message(chat_id=admin_chat_id, text=admin_text)
+				photo_id = data.get("photo_file_id") or ""
+				if photo_id:
+					# Telegram caption limit is 1024 chars. If too long, send short caption + details.
+					caption = admin_text
+					if len(caption) > 1024:
+						caption = "Yangi anketa keldi. Batafsil ma'lumot keyingi xabarda."
+						await message.bot.send_photo(chat_id=admin_chat_id, photo=photo_id, caption=caption)
+						await message.bot.send_message(chat_id=admin_chat_id, text=admin_text)
+					else:
+						await message.bot.send_photo(chat_id=admin_chat_id, photo=photo_id, caption=caption)
+				else:
+					await message.bot.send_message(chat_id=admin_chat_id, text=admin_text)
 			except Exception as notify_exc:  # noqa: BLE001
 				logging.exception("Failed to notify admin %s: %s", admin_chat_id, notify_exc)
 
