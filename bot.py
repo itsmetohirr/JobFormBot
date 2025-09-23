@@ -192,15 +192,6 @@ REGISTER_BUTTON_TEXT = "📝 Ro'yxatdan o'tish"
 # Keyboards
 # ==========================
 
-def contact_request_keyboard() -> ReplyKeyboardMarkup:
-	return ReplyKeyboardMarkup(
-		keyboard=[[KeyboardButton(text="Kontakt ulashish", request_contact=True)]],
-		resize_keyboard=True,
-		one_time_keyboard=True,
-		input_field_placeholder="Telefon raqamingiz",
-	)
-
-
 def yes_no_keyboard() -> ReplyKeyboardMarkup:
 	return ReplyKeyboardMarkup(
 		keyboard=[[KeyboardButton(text="Ha"), KeyboardButton(text="Yo'q")]],
@@ -369,15 +360,7 @@ async def s15_languages(message: Message, state: FSMContext) -> None:
 async def s16_intended_duration(message: Message, state: FSMContext) -> None:
 	await state.update_data(intended_duration=(message.text or "").strip())
 	await state.set_state(ApplicationForm.phone)
-	await message.answer("☎️ Telefon raqamingizni yuboring!", reply_markup=contact_request_keyboard())
-
-
-@router.message(ApplicationForm.phone, F.content_type == ContentType.CONTACT)
-async def s17_phone_contact(message: Message, state: FSMContext) -> None:
-	phone = message.contact.phone_number if message.contact else (message.text or "").strip()
-	await state.update_data(phone=phone)
-	await state.set_state(ApplicationForm.photo)
-	await message.answer("🖼️ Iltimos anketa uchun, o'zingizning rasmingizni yuboring!", reply_markup=ReplyKeyboardRemove())
+	await message.answer("☎️ Telefon raqamingizni yuboring!\n\n➡️ Namuna: 998 33 210 03 03", reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(ApplicationForm.phone)
@@ -396,7 +379,8 @@ async def s18_photo(message: Message, state: FSMContext) -> None:
 
 @router.message(ApplicationForm.photo)
 async def s18_photo_fallback(message: Message, state: FSMContext) -> None:
-	await _finalize_and_save(message, state, photo_file_id="")
+	# Only accept photos at this step. Prompt again if non-photo content is sent.
+	await message.answer("🖼️ Iltimos anketa uchun, o'zingizning rasmingizni yuboring!\nFaqat rasm yuboring — boshqa turdagi xabarlar qabul qilinmaydi.")
 
 
 async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id: str) -> None:
