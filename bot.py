@@ -153,8 +153,28 @@ def append_application_row(row_values: List[Any]) -> None:
 router = Router()
 
 WELCOME_MESSAGE = (
-	"Welcome to Our Company!\n\n"
-	"We're excited to learn more about you."
+	"🤩 SIZNI QADRLAYDIGAN JAMOAGA QO‘SHILISHNI XOHLAYSIZMI?\n\n"
+	"✨ Ish mazmuni: \n\n"
+	"— Mijozlar bilan muloqot qilish\n"
+	"— Mahsulot haqida ma’lumot berish\n"
+	"— Mahsulotlarni sotish\n"
+	"— Ma’lumotlarni bazaga kiritish\n\n"
+	"✅ Biz sizni tanlaymiz, agar:\n\n"
+	"— 18-40 yosh oralig‘ida bo‘lsangiz\n"
+	"— Jamoada ishlashni bilsangiz\n"
+	"— E’tiborli va muzokara qila olsangiz\n"
+	"— Stressga chidamli bo‘lsangiz\n"
+	"— Xushmuomala va ozoda boʻlsangiz\n\n"
+	"🥰 Sizni kutadigan imkoniyatlar:\n\n"
+	"— Do‘stona jamoa\n"
+	"— Oylik + bonuslar\n"
+	"— Rasman ishga qabul qilish\n"
+	"— Bepul o‘qish va tajriba\n"
+	"— Karyera va rivojlanish imkoniyati\n"
+	"— Haftasiga bir kun dam olish\n"
+	"— Yiliga 2 marta sayohatlar\n\n"
+	"⬇️ Pastdagi tugmani bosib, roʻyxatdan oʻtishni boshlang!\n\n"
+	"❕Iltimos ro'yxatdan o'tishda barcha ma'lumotlaringizni aniqlik bilan kiriting."
 )
 
 VACANCY_INFO = (
@@ -163,6 +183,8 @@ VACANCY_INFO = (
 	"Schedule: Full-time\n"
 	"Description: Join our team to build scalable services and great user experiences."
 )
+
+REGISTER_BUTTON_TEXT = "📝 Ro'yxatdan o'tish"
 
 
 # ==========================
@@ -195,15 +217,28 @@ def computer_skill_keyboard() -> ReplyKeyboardMarkup:
 	)
 
 
+def registration_keyboard() -> ReplyKeyboardMarkup:
+	return ReplyKeyboardMarkup(
+		keyboard=[[KeyboardButton(text=REGISTER_BUTTON_TEXT)]],
+		resize_keyboard=True,
+		one_time_keyboard=True,
+	)
+
+
 # ==========================
 # Handlers
 # ==========================
 @router.message(CommandStart())
 async def handle_start(message: Message, state: FSMContext) -> None:
-	await message.answer(WELCOME_MESSAGE)
-	await message.answer(VACANCY_INFO)
+	# Reset any previous state and show intro with registration button
+	await state.clear()
+	await message.answer(WELCOME_MESSAGE, reply_markup=registration_keyboard())
+
+
+@router.message(F.text == REGISTER_BUTTON_TEXT)
+async def handle_register_button(message: Message, state: FSMContext) -> None:
 	await state.set_state(ApplicationForm.salary_expectation)
-	await message.answer("💸 Qancha maoshga ishlashni xohlaysiz?")
+	await message.answer("💸 Qancha maoshga ishlashni xohlaysiz?", reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(Command("myid"))
@@ -228,7 +263,6 @@ async def q_prev_duration(message: Message, state: FSMContext) -> None:
 @router.message(ApplicationForm.criminal_record, F.text.in_({"Ha", "Yo'q", "Yoʻq", "yo'q", "yoʻq"}))
 async def q_criminal_record(message: Message, state: FSMContext) -> None:
 	text = (message.text or "").strip()
-	# Normalize to Ha/Yo'q
 	value = "Ha" if text.lower().startswith("h") else "Yo'q"
 	await state.update_data(criminal_record=value)
 	await state.set_state(ApplicationForm.marital_status)
@@ -237,7 +271,6 @@ async def q_criminal_record(message: Message, state: FSMContext) -> None:
 
 @router.message(ApplicationForm.criminal_record)
 async def q_criminal_record_free(message: Message, state: FSMContext) -> None:
-	# If user typed something else, just store as is
 	await state.update_data(criminal_record=(message.text or "").strip())
 	await state.set_state(ApplicationForm.marital_status)
 	await message.answer("💍 Oilaviy holatingiz qanday?\n\n— Turmush qurganmisiz?\n— Farzandingiz bormi, soni nechta?", reply_markup=ReplyKeyboardRemove())
@@ -277,7 +310,6 @@ async def q_last_salary(message: Message, state: FSMContext) -> None:
 @router.message(ApplicationForm.computer_skill)
 async def q_computer_skill(message: Message, state: FSMContext) -> None:
 	text = (message.text or "").strip()
-	# Accept 1-4 or button emojis
 	mapping = {"1": "1", "2": "2", "3": "3", "4": "4", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4"}
 	value = mapping.get(text, text)
 	await state.update_data(computer_skill=value)
@@ -316,7 +348,6 @@ async def q_phone_text(message: Message, state: FSMContext) -> None:
 
 @router.message(ApplicationForm.photo, F.photo)
 async def q_photo(message: Message, state: FSMContext) -> None:
-	# Take the highest resolution photo
 	photo_sizes = message.photo or []
 	file_id = photo_sizes[-1].file_id if photo_sizes else ""
 	await _finalize_and_save(message, state, file_id)
@@ -324,7 +355,6 @@ async def q_photo(message: Message, state: FSMContext) -> None:
 
 @router.message(ApplicationForm.photo)
 async def q_photo_fallback(message: Message, state: FSMContext) -> None:
-	# Accept text or other content as placeholder if photo not provided
 	await _finalize_and_save(message, state, (message.text or "").strip())
 
 
@@ -332,7 +362,6 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 	await state.update_data(photo_file_id=photo_file_id)
 	data = await state.get_data()
 
-	# Prepare row for Google Sheet
 	row = [
 		datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
 		str(message.from_user.id if message.from_user else ""),
@@ -365,7 +394,6 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 			"✅ Tabriklayman!\n\n— Arizangiz muvaffaqiyatli qabul qilindi. Yuborgan anketangizni albatta koʻrib chiqamiz va sizga aloqaga chiqamiz!",
 		)
 
-	# Notify admins
 	if ADMIN_CHAT_IDS:
 		user_id = message.from_user.id if message.from_user else None
 		username = f"@{message.from_user.username}" if (message.from_user and message.from_user.username) else "(no username)"
@@ -395,7 +423,6 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 			except Exception as notify_exc:  # noqa: BLE001
 				logging.exception("Failed to notify admin %s: %s", admin_chat_id, notify_exc)
 
-	# Reset state after finishing
 	await state.clear()
 
 
