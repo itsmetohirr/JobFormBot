@@ -391,16 +391,16 @@ async def s17_phone_text(message: Message, state: FSMContext) -> None:
 async def s18_photo(message: Message, state: FSMContext) -> None:
 	photo_sizes = message.photo or []
 	file_id = photo_sizes[-1].file_id if photo_sizes else ""
-	await _finalize_and_save(message, state, file_id)
+	await _finalize_and_save(message, state, photo_file_id=file_id)
 
 
 @router.message(ApplicationForm.photo)
 async def s18_photo_fallback(message: Message, state: FSMContext) -> None:
-	await _finalize_and_save(message, state, (message.text or "").strip())
+	await _finalize_and_save(message, state, photo_file_id="")
 
 
 async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id: str) -> None:
-	await state.update_data(photo_file_id=photo_file_id)
+	# Do not store photo id; only use for admin notification.
 	data = await state.get_data()
 
 	row = [
@@ -424,7 +424,6 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 		data.get("languages", ""),
 		data.get("intended_duration", ""),
 		data.get("phone", ""),
-		data.get("photo_file_id", ""),
 	]
 
 	write_ok = True
@@ -467,21 +466,15 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 			f"💡 Tillar: {data.get('languages','')}\n"
 			f"🏥 Rejalangan muddat: {data.get('intended_duration','')}\n"
 			f"☎️ Telefon: {data.get('phone','')}\n"
-			f"🖼️ Photo file_id: {data.get('photo_file_id','')}\n"
 			f"Status: {status_text}"
 		)
 		for admin_chat_id in ADMIN_CHAT_IDS:
 			try:
-				photo_id = data.get("photo_file_id") or ""
-				if photo_id:
-					# Telegram caption limit is 1024 chars. If too long, send short caption + details.
-					caption = admin_text
-					if len(caption) > 1024:
-						caption = "Yangi anketa keldi. Batafsil ma'lumot keyingi xabarda."
-						await message.bot.send_photo(chat_id=admin_chat_id, photo=photo_id, caption=caption)
+				if photo_file_id:
+					caption = admin_text if len(admin_text) <= 1024 else "Yangi anketa keldi. Batafsil ma'lumot keyingi xabarda."
+					await message.bot.send_photo(chat_id=admin_chat_id, photo=photo_file_id, caption=caption)
+					if len(admin_text) > 1024:
 						await message.bot.send_message(chat_id=admin_chat_id, text=admin_text)
-					else:
-						await message.bot.send_photo(chat_id=admin_chat_id, photo=photo_id, caption=caption)
 				else:
 					await message.bot.send_message(chat_id=admin_chat_id, text=admin_text)
 			except Exception as notify_exc:  # noqa: BLE001
