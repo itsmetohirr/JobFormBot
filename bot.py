@@ -46,8 +46,8 @@ GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_CON
 # Google Sheet ID and target range for appending rows
 # Example sheet URL: https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "PASTE_YOUR_SHEET_ID_HERE")
-# Range can be the sheet/tab name, e.g. "Applications" or "Applications!A1"
-GOOGLE_SHEET_RANGE = os.getenv("GOOGLE_SHEET_RANGE", "Applications!A1")
+# Range can be the sheet/tab name, e.g. "Sheet1!A1"
+GOOGLE_SHEET_RANGE = os.getenv("GOOGLE_SHEET_RANGE", "Sheet1!A1")
 
 # Scopes: only spreadsheets append/read
 GOOGLE_SCOPES = [
@@ -74,15 +74,21 @@ elif _ADMIN_ID_SINGLE:
 
 
 # ==========================
-# FSM States
+# FSM States (Uzbek flow)
 # ==========================
 class ApplicationForm(StatesGroup):
-	full_name = State()
-	birthdate = State()
-	address = State()
-	experience = State()
-	salary = State()
+	salary_expectation = State()
+	prev_job_duration = State()
+	criminal_record = State()
+	marital_status = State()
+	children_count = State()
+	last_workplace = State()
+	last_salary = State()
+	computer_skill = State()
+	languages = State()
+	intended_duration = State()
 	phone = State()
+	photo = State()
 
 
 # ==========================
@@ -134,11 +140,9 @@ def append_application_row(row_values: List[Any]) -> None:
 	try:
 		_append_with_range(GOOGLE_SHEET_RANGE)
 	except HttpError as http_err:
-		# Fallback if the provided range cannot be parsed (e.g., missing sheet/tab)
 		if "Unable to parse range" in str(http_err):
-			# Try using only the sheet/tab name before '!'
 			sheet_name = GOOGLE_SHEET_RANGE.split("!", 1)[0]
-			_append_with_range(sheet_name)
+			_append_with_range(sheet_name + "!A1")
 		else:
 			raise
 
@@ -167,10 +171,27 @@ VACANCY_INFO = (
 
 def contact_request_keyboard() -> ReplyKeyboardMarkup:
 	return ReplyKeyboardMarkup(
-		keyboard=[[KeyboardButton(text="Share Contact", request_contact=True)]],
+		keyboard=[[KeyboardButton(text="Kontakt ulashish", request_contact=True)]],
 		resize_keyboard=True,
 		one_time_keyboard=True,
-		input_field_placeholder="Please share your phone number",
+		input_field_placeholder="Telefon raqamingiz",
+	)
+
+
+def yes_no_keyboard() -> ReplyKeyboardMarkup:
+	return ReplyKeyboardMarkup(
+		keyboard=[[KeyboardButton(text="Ha"), KeyboardButton(text="Yo'q")]],
+		resize_keyboard=True,
+		one_time_keyboard=True,
+	)
+
+
+def computer_skill_keyboard() -> ReplyKeyboardMarkup:
+	return ReplyKeyboardMarkup(
+		keyboard=[[KeyboardButton(text="1️⃣"), KeyboardButton(text="2️⃣"), KeyboardButton(text="3️⃣"), KeyboardButton(text="4️⃣")]],
+		resize_keyboard=True,
+		one_time_keyboard=True,
+		input_field_placeholder="1 - 4 dan birini tanlang",
 	)
 
 
@@ -179,13 +200,10 @@ def contact_request_keyboard() -> ReplyKeyboardMarkup:
 # ==========================
 @router.message(CommandStart())
 async def handle_start(message: Message, state: FSMContext) -> None:
-	# Show company's welcome message
 	await message.answer(WELCOME_MESSAGE)
-	# Send vacancy information first
 	await message.answer(VACANCY_INFO)
-	# Begin questionnaire
-	await state.set_state(ApplicationForm.full_name)
-	await message.answer("Please enter your Full Name (Name Surname):")
+	await state.set_state(ApplicationForm.salary_expectation)
+	await message.answer("💸 Qancha maoshga ishlashni xohlaysiz?")
 
 
 @router.message(Command("myid"))
@@ -193,93 +211,146 @@ async def handle_myid(message: Message) -> None:
 	await message.answer(f"Your chat ID: {message.chat.id}")
 
 
-@router.message(ApplicationForm.full_name, F.text.len() > 1)
-async def handle_full_name(message: Message, state: FSMContext) -> None:
-	await state.update_data(full_name=message.text.strip())
-	await state.set_state(ApplicationForm.birthdate)
-	await message.answer("Enter your Birthdate (e.g., 1995-08-21):")
+@router.message(ApplicationForm.salary_expectation)
+async def q_salary_expectation(message: Message, state: FSMContext) -> None:
+	await state.update_data(salary_expectation=(message.text or "").strip())
+	await state.set_state(ApplicationForm.prev_job_duration)
+	await message.answer("💼 Oldingi ish joyingizda qancha muddat ishlagansiz?")
 
 
-@router.message(ApplicationForm.birthdate)
-async def handle_birthdate(message: Message, state: FSMContext) -> None:
+@router.message(ApplicationForm.prev_job_duration)
+async def q_prev_duration(message: Message, state: FSMContext) -> None:
+	await state.update_data(prev_job_duration=(message.text or "").strip())
+	await state.set_state(ApplicationForm.criminal_record)
+	await message.answer("⚖️ Sudlanganmisiz? Ha / Yoʻq", reply_markup=yes_no_keyboard())
+
+
+@router.message(ApplicationForm.criminal_record, F.text.in_({"Ha", "Yo'q", "Yoʻq", "yo'q", "yoʻq"}))
+async def q_criminal_record(message: Message, state: FSMContext) -> None:
 	text = (message.text or "").strip()
-	# Attempt simple validation: accept YYYY-MM-DD or DD.MM.YYYY
-	parsed: Optional[str] = None
-	for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
-		try:
-			dt = datetime.strptime(text, fmt)
-			parsed = dt.strftime("%Y-%m-%d")
-			break
-		except ValueError:
-			continue
-
-	if not parsed:
-		await message.answer("Invalid date format. Please use YYYY-MM-DD or DD.MM.YYYY:")
-		return
-
-	await state.update_data(birthdate=parsed)
-	await state.set_state(ApplicationForm.address)
-	await message.answer("Enter your Address (City, Country):")
+	# Normalize to Ha/Yo'q
+	value = "Ha" if text.lower().startswith("h") else "Yo'q"
+	await state.update_data(criminal_record=value)
+	await state.set_state(ApplicationForm.marital_status)
+	await message.answer("💍 Oilaviy holatingiz qanday?\n\n— Turmush qurganmisiz?\n— Farzandingiz bormi, soni nechta?", reply_markup=ReplyKeyboardRemove())
 
 
-@router.message(ApplicationForm.address, F.text.len() > 1)
-async def handle_address(message: Message, state: FSMContext) -> None:
-	await state.update_data(address=message.text.strip())
-	await state.set_state(ApplicationForm.experience)
-	await message.answer("Briefly describe your Work Experience:")
+@router.message(ApplicationForm.criminal_record)
+async def q_criminal_record_free(message: Message, state: FSMContext) -> None:
+	# If user typed something else, just store as is
+	await state.update_data(criminal_record=(message.text or "").strip())
+	await state.set_state(ApplicationForm.marital_status)
+	await message.answer("💍 Oilaviy holatingiz qanday?\n\n— Turmush qurganmisiz?\n— Farzandingiz bormi, soni nechta?", reply_markup=ReplyKeyboardRemove())
 
 
-@router.message(ApplicationForm.experience, F.text.len() > 1)
-async def handle_experience(message: Message, state: FSMContext) -> None:
-	await state.update_data(experience=message.text.strip())
-	await state.set_state(ApplicationForm.salary)
-	await message.answer("What are your Salary Expectations? (specify currency)")
+@router.message(ApplicationForm.marital_status)
+async def q_marital_status(message: Message, state: FSMContext) -> None:
+	await state.update_data(marital_status=(message.text or "").strip())
+	await state.set_state(ApplicationForm.children_count)
+	await message.answer("Farzandingiz bormi, soni nechta?")
 
 
-@router.message(ApplicationForm.salary, F.text.len() > 0)
-async def handle_salary(message: Message, state: FSMContext) -> None:
-	await state.update_data(salary=message.text.strip())
-	await state.set_state(ApplicationForm.phone)
+@router.message(ApplicationForm.children_count)
+async def q_children_count(message: Message, state: FSMContext) -> None:
+	await state.update_data(children_count=(message.text or "").strip())
+	await state.set_state(ApplicationForm.last_workplace)
+	await message.answer("🏢 Oxirgi ish joyingiz qaysi edi?")
+
+
+@router.message(ApplicationForm.last_workplace)
+async def q_last_workplace(message: Message, state: FSMContext) -> None:
+	await state.update_data(last_workplace=(message.text or "").strip())
+	await state.set_state(ApplicationForm.last_salary)
+	await message.answer("💰 Oxirgi ish joyingizda maoshingiz qancha boʻlgan?")
+
+
+@router.message(ApplicationForm.last_salary)
+async def q_last_salary(message: Message, state: FSMContext) -> None:
+	await state.update_data(last_salary=(message.text or "").strip())
+	await state.set_state(ApplicationForm.computer_skill)
 	await message.answer(
-		"Please share your Phone Number using the button below or type it manually:",
-		reply_markup=contact_request_keyboard(),
+		"💻 Kompyuterdan foydalanish darajangiz qanday?\n\n1️⃣ Bilmayman\n2️⃣ Boshlangʻich bilaman\n3️⃣ O‘rtacha daraja\n4️⃣ Juda ham yaxshi",
+		reply_markup=computer_skill_keyboard(),
 	)
 
 
+@router.message(ApplicationForm.computer_skill)
+async def q_computer_skill(message: Message, state: FSMContext) -> None:
+	text = (message.text or "").strip()
+	# Accept 1-4 or button emojis
+	mapping = {"1": "1", "2": "2", "3": "3", "4": "4", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4"}
+	value = mapping.get(text, text)
+	await state.update_data(computer_skill=value)
+	await state.set_state(ApplicationForm.languages)
+	await message.answer("💡 Qaysi tillarni, qanday darajada bilasiz?", reply_markup=ReplyKeyboardRemove())
+
+
+@router.message(ApplicationForm.languages)
+async def q_languages(message: Message, state: FSMContext) -> None:
+	await state.update_data(languages=(message.text or "").strip())
+	await state.set_state(ApplicationForm.intended_duration)
+	await message.answer("🏥 Yangi ish joyingizda qancha muddat ishlashni rejalashtiryapsiz?")
+
+
+@router.message(ApplicationForm.intended_duration)
+async def q_intended_duration(message: Message, state: FSMContext) -> None:
+	await state.update_data(intended_duration=(message.text or "").strip())
+	await state.set_state(ApplicationForm.phone)
+	await message.answer("☎️ Telefon raqamingizni yuboring!", reply_markup=contact_request_keyboard())
+
+
 @router.message(ApplicationForm.phone, F.content_type == ContentType.CONTACT)
-async def handle_phone_contact(message: Message, state: FSMContext) -> None:
-	if not message.contact:
-		await message.answer("Please use the 'Share Contact' button or type your phone number.")
-		return
-	phone = message.contact.phone_number
-	await _finalize_and_save(message, state, phone)
-
-
-@router.message(ApplicationForm.phone, F.text.len() > 3)
-async def handle_phone_text(message: Message, state: FSMContext) -> None:
-	# Minimal sanitation for phone input
-	phone = message.text.strip()
-	await _finalize_and_save(message, state, phone)
-
-
-async def _finalize_and_save(message: Message, state: FSMContext, phone: str) -> None:
+async def q_phone_contact(message: Message, state: FSMContext) -> None:
+	phone = message.contact.phone_number if message.contact else (message.text or "").strip()
 	await state.update_data(phone=phone)
+	await state.set_state(ApplicationForm.photo)
+	await message.answer("🖼️ Iltimos anketa uchun, o'zingizning rasmingizni yuboring!", reply_markup=ReplyKeyboardRemove())
+
+
+@router.message(ApplicationForm.phone)
+async def q_phone_text(message: Message, state: FSMContext) -> None:
+	await state.update_data(phone=(message.text or "").strip())
+	await state.set_state(ApplicationForm.photo)
+	await message.answer("🖼️ Iltimos anketa uchun, o'zingizning rasmingizni yuboring!")
+
+
+@router.message(ApplicationForm.photo, F.photo)
+async def q_photo(message: Message, state: FSMContext) -> None:
+	# Take the highest resolution photo
+	photo_sizes = message.photo or []
+	file_id = photo_sizes[-1].file_id if photo_sizes else ""
+	await _finalize_and_save(message, state, file_id)
+
+
+@router.message(ApplicationForm.photo)
+async def q_photo_fallback(message: Message, state: FSMContext) -> None:
+	# Accept text or other content as placeholder if photo not provided
+	await _finalize_and_save(message, state, (message.text or "").strip())
+
+
+async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id: str) -> None:
+	await state.update_data(photo_file_id=photo_file_id)
 	data = await state.get_data()
 
-	# Prepare row: timestamp, user_id, username, data fields
+	# Prepare row for Google Sheet
 	row = [
 		datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
 		str(message.from_user.id if message.from_user else ""),
 		(message.from_user.username if message.from_user and message.from_user.username else ""),
-		data.get("full_name", ""),
-		data.get("birthdate", ""),
-		data.get("address", ""),
-		data.get("experience", ""),
-		data.get("salary", ""),
+		data.get("salary_expectation", ""),
+		data.get("prev_job_duration", ""),
+		data.get("criminal_record", ""),
+		data.get("marital_status", ""),
+		data.get("children_count", ""),
+		data.get("last_workplace", ""),
+		data.get("last_salary", ""),
+		data.get("computer_skill", ""),
+		data.get("languages", ""),
+		data.get("intended_duration", ""),
 		data.get("phone", ""),
+		data.get("photo_file_id", ""),
 	]
 
-	# Attempt to write to Google Sheet
 	write_ok = True
 	try:
 		append_application_row(row)
@@ -287,13 +358,11 @@ async def _finalize_and_save(message: Message, state: FSMContext, phone: str) ->
 		write_ok = False
 		logging.exception("Failed to append to Google Sheet: %s", exc)
 		await message.answer(
-			"Your application was received, but saving to Google Sheet failed. "
-			"An administrator will review this issue."
+			"Arizangiz qabul qilindi, ammo Google Sheetsa saqlashda xatolik yuz berdi. Administrator xabardor qilindi."
 		)
 	else:
 		await message.answer(
-			"Thank you! Your application has been recorded.",
-			reply_markup=ReplyKeyboardRemove(),
+			"✅ Tabriklayman!\n\n— Arizangiz muvaffaqiyatli qabul qilindi. Yuborgan anketangizni albatta koʻrib chiqamiz va sizga aloqaga chiqamiz!",
 		)
 
 	# Notify admins
@@ -302,16 +371,22 @@ async def _finalize_and_save(message: Message, state: FSMContext, phone: str) ->
 		username = f"@{message.from_user.username}" if (message.from_user and message.from_user.username) else "(no username)"
 		status_text = "Saved to Google Sheet" if write_ok else "FAILED to save to Google Sheet"
 		admin_text = (
-			"New application received:\n"
+			"Yangi anketa keldi:\n"
 			f"Time (UTC): {row[0]}\n"
 			f"User ID: {user_id}\n"
 			f"Username: {username}\n"
-			f"Full Name: {data.get('full_name','')}\n"
-			f"Birthdate: {data.get('birthdate','')}\n"
-			f"Address: {data.get('address','')}\n"
-			f"Experience: {data.get('experience','')}\n"
-			f"Salary: {data.get('salary','')}\n"
-			f"Phone: {data.get('phone','')}\n"
+			f"💸 Xohl. maosh: {data.get('salary_expectation','')}\n"
+			f"💼 Oldingi muddat: {data.get('prev_job_duration','')}\n"
+			f"⚖️ Sudlanganmi: {data.get('criminal_record','')}\n"
+			f"💍 Oilaviy: {data.get('marital_status','')}\n"
+			f"👶 Farzandlar: {data.get('children_count','')}\n"
+			f"🏢 Oxirgi ish joyi: {data.get('last_workplace','')}\n"
+			f"💰 Oxirgi maosh: {data.get('last_salary','')}\n"
+			f"💻 Komp. daraja: {data.get('computer_skill','')}\n"
+			f"💡 Tillar: {data.get('languages','')}\n"
+			f"🏥 Yangi ishda muddat: {data.get('intended_duration','')}\n"
+			f"☎️ Telefon: {data.get('phone','')}\n"
+			f"🖼️ Photo file_id: {data.get('photo_file_id','')}\n"
 			f"Status: {status_text}"
 		)
 		for admin_chat_id in ADMIN_CHAT_IDS:
