@@ -16,6 +16,8 @@ from aiogram.types import (
 	Message,
 	ReplyKeyboardMarkup,
 	ReplyKeyboardRemove,
+	InlineKeyboardMarkup,
+	InlineKeyboardButton,
 )
 from aiogram.client.default import DefaultBotProperties
 
@@ -217,11 +219,9 @@ def computer_skill_keyboard() -> ReplyKeyboardMarkup:
 	)
 
 
-def registration_keyboard() -> ReplyKeyboardMarkup:
-	return ReplyKeyboardMarkup(
-		keyboard=[[KeyboardButton(text=REGISTER_BUTTON_TEXT)]],
-		resize_keyboard=True,
-		one_time_keyboard=True,
+def registration_inline_keyboard() -> InlineKeyboardMarkup:
+	return InlineKeyboardMarkup(
+		inline_keyboard=[[InlineKeyboardButton(text=REGISTER_BUTTON_TEXT, callback_data="register")]]
 	)
 
 
@@ -230,15 +230,16 @@ def registration_keyboard() -> ReplyKeyboardMarkup:
 # ==========================
 @router.message(CommandStart())
 async def handle_start(message: Message, state: FSMContext) -> None:
-	# Reset any previous state and show intro with registration button
+	# Reset any previous state and show intro with inline registration button attached to the same message
 	await state.clear()
-	await message.answer(WELCOME_MESSAGE, reply_markup=registration_keyboard())
+	await message.answer(WELCOME_MESSAGE, reply_markup=registration_inline_keyboard())
 
 
-@router.message(F.text == REGISTER_BUTTON_TEXT)
-async def handle_register_button(message: Message, state: FSMContext) -> None:
+@router.callback_query(F.data == "register")
+async def on_register_callback(callback: CallbackQuery, state: FSMContext) -> None:
+	await callback.answer()
 	await state.set_state(ApplicationForm.salary_expectation)
-	await message.answer("💸 Qancha maoshga ishlashni xohlaysiz?", reply_markup=ReplyKeyboardRemove())
+	await callback.message.answer("💸 Qancha maoshga ishlashni xohlaysiz?")
 
 
 @router.message(Command("myid"))
