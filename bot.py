@@ -76,21 +76,27 @@ elif _ADMIN_ID_SINGLE:
 
 
 # ==========================
-# FSM States (Uzbek flow)
+# FSM States (Uzbek flow updated)
 # ==========================
 class ApplicationForm(StatesGroup):
-	salary_expectation = State()
-	prev_job_duration = State()
-	criminal_record = State()
-	marital_status = State()
-	children_count = State()
-	last_workplace = State()
-	last_salary = State()
-	computer_skill = State()
-	languages = State()
-	intended_duration = State()
-	phone = State()
-	photo = State()
+	full_name = State()                 # 1
+	birthdate = State()                 # 2
+	address = State()                   # 3
+	desired_region = State()            # 4
+	pharmacy_study_place = State()      # 5
+	education_level = State()           # 6
+	total_experience_duration = State() # 7
+	last_workplace = State()            # 8
+	prev_job_duration = State()         # 9
+	last_salary = State()               # 10
+	marital_status = State()            # 11
+	criminal_record = State()           # 12
+	salary_expectation = State()        # 13
+	computer_skill = State()            # 14
+	languages = State()                 # 15
+	intended_duration = State()         # 16
+	phone = State()                     # 17
+	photo = State()                     # 18
 
 
 # ==========================
@@ -179,13 +185,6 @@ WELCOME_MESSAGE = (
 	"❕Iltimos ro'yxatdan o'tishda barcha ma'lumotlaringizni aniqlik bilan kiriting."
 )
 
-VACANCY_INFO = (
-	"Vacancy: Python Developer\n"
-	"Location: Remote\n"
-	"Schedule: Full-time\n"
-	"Description: Join our team to build scalable services and great user experiences."
-)
-
 REGISTER_BUTTON_TEXT = "📝 Ro'yxatdan o'tish"
 
 
@@ -230,7 +229,6 @@ def registration_inline_keyboard() -> InlineKeyboardMarkup:
 # ==========================
 @router.message(CommandStart())
 async def handle_start(message: Message, state: FSMContext) -> None:
-	# Reset any previous state and show intro with inline registration button attached to the same message
 	await state.clear()
 	await message.answer(WELCOME_MESSAGE, reply_markup=registration_inline_keyboard())
 
@@ -238,8 +236,8 @@ async def handle_start(message: Message, state: FSMContext) -> None:
 @router.callback_query(F.data == "register")
 async def on_register_callback(callback: CallbackQuery, state: FSMContext) -> None:
 	await callback.answer()
-	await state.set_state(ApplicationForm.salary_expectation)
-	await callback.message.answer("💸 Qancha maoshga ishlashni xohlaysiz?")
+	await state.set_state(ApplicationForm.full_name)
+	await callback.message.answer("👤 Ism-sharifingizni yozing:")
 
 
 @router.message(Command("myid"))
@@ -247,60 +245,102 @@ async def handle_myid(message: Message) -> None:
 	await message.answer(f"Your chat ID: {message.chat.id}")
 
 
-@router.message(ApplicationForm.salary_expectation)
-async def q_salary_expectation(message: Message, state: FSMContext) -> None:
-	await state.update_data(salary_expectation=(message.text or "").strip())
-	await state.set_state(ApplicationForm.prev_job_duration)
-	await message.answer("💼 Oldingi ish joyingizda qancha muddat ishlagansiz?")
+@router.message(ApplicationForm.full_name)
+async def s1_full_name(message: Message, state: FSMContext) -> None:
+	await state.update_data(full_name=(message.text or "").strip())
+	await state.set_state(ApplicationForm.birthdate)
+	await message.answer("🗓️ Tugʻilgan kun/oy/yilni yozing:")
 
 
-@router.message(ApplicationForm.prev_job_duration)
-async def q_prev_duration(message: Message, state: FSMContext) -> None:
-	await state.update_data(prev_job_duration=(message.text or "").strip())
-	await state.set_state(ApplicationForm.criminal_record)
-	await message.answer("⚖️ Sudlanganmisiz? Ha / Yoʻq", reply_markup=yes_no_keyboard())
+@router.message(ApplicationForm.birthdate)
+async def s2_birthdate(message: Message, state: FSMContext) -> None:
+	await state.update_data(birthdate=(message.text or "").strip())
+	await state.set_state(ApplicationForm.address)
+	await message.answer("📍 Yashash manzilingizni batafsil yozing.")
 
 
-@router.message(ApplicationForm.criminal_record, F.text.in_({"Ha", "Yo'q", "Yoʻq", "yo'q", "yoʻq"}))
-async def q_criminal_record(message: Message, state: FSMContext) -> None:
-	text = (message.text or "").strip()
-	value = "Ha" if text.lower().startswith("h") else "Yo'q"
-	await state.update_data(criminal_record=value)
-	await state.set_state(ApplicationForm.marital_status)
-	await message.answer("💍 Oilaviy holatingiz qanday?\n\n— Turmush qurganmisiz?\n— Farzandingiz bormi, soni nechta?", reply_markup=ReplyKeyboardRemove())
+@router.message(ApplicationForm.address)
+async def s3_address(message: Message, state: FSMContext) -> None:
+	await state.update_data(address=(message.text or "").strip())
+	await state.set_state(ApplicationForm.desired_region)
+	await message.answer("🏥 Ishlashni xohlagan hududingizni yozing:")
 
 
-@router.message(ApplicationForm.criminal_record)
-async def q_criminal_record_free(message: Message, state: FSMContext) -> None:
-	await state.update_data(criminal_record=(message.text or "").strip())
-	await state.set_state(ApplicationForm.marital_status)
-	await message.answer("💍 Oilaviy holatingiz qanday?\n\n— Turmush qurganmisiz?\n— Farzandingiz bormi, soni nechta?", reply_markup=ReplyKeyboardRemove())
+@router.message(ApplicationForm.desired_region)
+async def s4_desired_region(message: Message, state: FSMContext) -> None:
+	await state.update_data(desired_region=(message.text or "").strip())
+	await state.set_state(ApplicationForm.pharmacy_study_place)
+	await message.answer("🏫 Farmatsevtlikni qayerda oʻqigansiz?")
 
 
-@router.message(ApplicationForm.marital_status)
-async def q_marital_status(message: Message, state: FSMContext) -> None:
-	await state.update_data(marital_status=(message.text or "").strip())
-	await state.set_state(ApplicationForm.children_count)
-	await message.answer("Farzandingiz bormi, soni nechta?")
+@router.message(ApplicationForm.pharmacy_study_place)
+async def s5_study_place(message: Message, state: FSMContext) -> None:
+	await state.update_data(pharmacy_study_place=(message.text or "").strip())
+	await state.set_state(ApplicationForm.education_level)
+	await message.answer("🎓 Maʼlumotingizni yozing!\n— Oliy yoki oʻrta maxsus:")
 
 
-@router.message(ApplicationForm.children_count)
-async def q_children_count(message: Message, state: FSMContext) -> None:
-	await state.update_data(children_count=(message.text or "").strip())
+@router.message(ApplicationForm.education_level)
+async def s6_education(message: Message, state: FSMContext) -> None:
+	await state.update_data(education_level=(message.text or "").strip())
+	await state.set_state(ApplicationForm.total_experience_duration)
+	await message.answer("⏳ Sohadagi umumiy tajribangiz muddati qancha?")
+
+
+@router.message(ApplicationForm.total_experience_duration)
+async def s7_total_exp(message: Message, state: FSMContext) -> None:
+	await state.update_data(total_experience_duration=(message.text or "").strip())
 	await state.set_state(ApplicationForm.last_workplace)
 	await message.answer("🏢 Oxirgi ish joyingiz qaysi edi?")
 
 
 @router.message(ApplicationForm.last_workplace)
-async def q_last_workplace(message: Message, state: FSMContext) -> None:
+async def s8_last_workplace(message: Message, state: FSMContext) -> None:
 	await state.update_data(last_workplace=(message.text or "").strip())
+	await state.set_state(ApplicationForm.prev_job_duration)
+	await message.answer("💼 Oldingi ish joyingizda qancha muddat ishlagansiz?")
+
+
+@router.message(ApplicationForm.prev_job_duration)
+async def s9_prev_duration(message: Message, state: FSMContext) -> None:
+	await state.update_data(prev_job_duration=(message.text or "").strip())
 	await state.set_state(ApplicationForm.last_salary)
 	await message.answer("💰 Oxirgi ish joyingizda maoshingiz qancha boʻlgan?")
 
 
 @router.message(ApplicationForm.last_salary)
-async def q_last_salary(message: Message, state: FSMContext) -> None:
+async def s10_last_salary(message: Message, state: FSMContext) -> None:
 	await state.update_data(last_salary=(message.text or "").strip())
+	await state.set_state(ApplicationForm.marital_status)
+	await message.answer("💍 Oilaviy holatingiz qanday?\n— Turmush qurganmisiz?\n— Farzandingiz bormi, soni nechta?")
+
+
+@router.message(ApplicationForm.marital_status)
+async def s11_marital(message: Message, state: FSMContext) -> None:
+	await state.update_data(marital_status=(message.text or "").strip())
+	await state.set_state(ApplicationForm.criminal_record)
+	await message.answer("⚖️ Sudlanganmisiz?", reply_markup=yes_no_keyboard())
+
+
+@router.message(ApplicationForm.criminal_record, F.text.in_({"Ha", "Yo'q", "Yoʻq", "yo'q", "yoʻq"}))
+async def s12_criminal_choice(message: Message, state: FSMContext) -> None:
+	text = (message.text or "").strip()
+	value = "Ha" if text.lower().startswith("h") else "Yo'q"
+	await state.update_data(criminal_record=value)
+	await state.set_state(ApplicationForm.salary_expectation)
+	await message.answer("💸 Qancha maoshga ishlashni xohlaysiz?", reply_markup=ReplyKeyboardRemove())
+
+
+@router.message(ApplicationForm.criminal_record)
+async def s12_criminal_free(message: Message, state: FSMContext) -> None:
+	await state.update_data(criminal_record=(message.text or "").strip())
+	await state.set_state(ApplicationForm.salary_expectation)
+	await message.answer("💸 Qancha maoshga ishlashni xohlaysiz?", reply_markup=ReplyKeyboardRemove())
+
+
+@router.message(ApplicationForm.salary_expectation)
+async def s13_salary_expectation(message: Message, state: FSMContext) -> None:
+	await state.update_data(salary_expectation=(message.text or "").strip())
 	await state.set_state(ApplicationForm.computer_skill)
 	await message.answer(
 		"💻 Kompyuterdan foydalanish darajangiz qanday?\n\n1️⃣ Bilmayman\n2️⃣ Boshlangʻich bilaman\n3️⃣ O‘rtacha daraja\n4️⃣ Juda ham yaxshi",
@@ -309,7 +349,7 @@ async def q_last_salary(message: Message, state: FSMContext) -> None:
 
 
 @router.message(ApplicationForm.computer_skill)
-async def q_computer_skill(message: Message, state: FSMContext) -> None:
+async def s14_computer_skill(message: Message, state: FSMContext) -> None:
 	text = (message.text or "").strip()
 	mapping = {"1": "1", "2": "2", "3": "3", "4": "4", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4"}
 	value = mapping.get(text, text)
@@ -319,21 +359,21 @@ async def q_computer_skill(message: Message, state: FSMContext) -> None:
 
 
 @router.message(ApplicationForm.languages)
-async def q_languages(message: Message, state: FSMContext) -> None:
+async def s15_languages(message: Message, state: FSMContext) -> None:
 	await state.update_data(languages=(message.text or "").strip())
 	await state.set_state(ApplicationForm.intended_duration)
 	await message.answer("🏥 Yangi ish joyingizda qancha muddat ishlashni rejalashtiryapsiz?")
 
 
 @router.message(ApplicationForm.intended_duration)
-async def q_intended_duration(message: Message, state: FSMContext) -> None:
+async def s16_intended_duration(message: Message, state: FSMContext) -> None:
 	await state.update_data(intended_duration=(message.text or "").strip())
 	await state.set_state(ApplicationForm.phone)
 	await message.answer("☎️ Telefon raqamingizni yuboring!", reply_markup=contact_request_keyboard())
 
 
 @router.message(ApplicationForm.phone, F.content_type == ContentType.CONTACT)
-async def q_phone_contact(message: Message, state: FSMContext) -> None:
+async def s17_phone_contact(message: Message, state: FSMContext) -> None:
 	phone = message.contact.phone_number if message.contact else (message.text or "").strip()
 	await state.update_data(phone=phone)
 	await state.set_state(ApplicationForm.photo)
@@ -341,21 +381,21 @@ async def q_phone_contact(message: Message, state: FSMContext) -> None:
 
 
 @router.message(ApplicationForm.phone)
-async def q_phone_text(message: Message, state: FSMContext) -> None:
+async def s17_phone_text(message: Message, state: FSMContext) -> None:
 	await state.update_data(phone=(message.text or "").strip())
 	await state.set_state(ApplicationForm.photo)
 	await message.answer("🖼️ Iltimos anketa uchun, o'zingizning rasmingizni yuboring!")
 
 
 @router.message(ApplicationForm.photo, F.photo)
-async def q_photo(message: Message, state: FSMContext) -> None:
+async def s18_photo(message: Message, state: FSMContext) -> None:
 	photo_sizes = message.photo or []
 	file_id = photo_sizes[-1].file_id if photo_sizes else ""
 	await _finalize_and_save(message, state, file_id)
 
 
 @router.message(ApplicationForm.photo)
-async def q_photo_fallback(message: Message, state: FSMContext) -> None:
+async def s18_photo_fallback(message: Message, state: FSMContext) -> None:
 	await _finalize_and_save(message, state, (message.text or "").strip())
 
 
@@ -367,13 +407,19 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 		datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
 		str(message.from_user.id if message.from_user else ""),
 		(message.from_user.username if message.from_user and message.from_user.username else ""),
-		data.get("salary_expectation", ""),
-		data.get("prev_job_duration", ""),
-		data.get("criminal_record", ""),
-		data.get("marital_status", ""),
-		data.get("children_count", ""),
+		data.get("full_name", ""),
+		data.get("birthdate", ""),
+		data.get("address", ""),
+		data.get("desired_region", ""),
+		data.get("pharmacy_study_place", ""),
+		data.get("education_level", ""),
+		data.get("total_experience_duration", ""),
 		data.get("last_workplace", ""),
+		data.get("prev_job_duration", ""),
 		data.get("last_salary", ""),
+		data.get("marital_status", ""),
+		data.get("criminal_record", ""),
+		data.get("salary_expectation", ""),
 		data.get("computer_skill", ""),
 		data.get("languages", ""),
 		data.get("intended_duration", ""),
@@ -404,16 +450,22 @@ async def _finalize_and_save(message: Message, state: FSMContext, photo_file_id:
 			f"Time (UTC): {row[0]}\n"
 			f"User ID: {user_id}\n"
 			f"Username: {username}\n"
-			f"💸 Xohl. maosh: {data.get('salary_expectation','')}\n"
+			f"👤 Ism: {data.get('full_name','')}\n"
+			f"🗓️ Tug'ilgan sana: {data.get('birthdate','')}\n"
+			f"📍 Manzil: {data.get('address','')}\n"
+			f"🏥 Xohlagan hudud: {data.get('desired_region','')}\n"
+			f"🏫 O'qigan joy: {data.get('pharmacy_study_place','')}\n"
+			f"🎓 Ma'lumoti: {data.get('education_level','')}\n"
+			f"⏳ Umumiy tajriba: {data.get('total_experience_duration','')}\n"
+			f"🏢 Oxirgi ish: {data.get('last_workplace','')}\n"
 			f"💼 Oldingi muddat: {data.get('prev_job_duration','')}\n"
-			f"⚖️ Sudlanganmi: {data.get('criminal_record','')}\n"
-			f"💍 Oilaviy: {data.get('marital_status','')}\n"
-			f"👶 Farzandlar: {data.get('children_count','')}\n"
-			f"🏢 Oxirgi ish joyi: {data.get('last_workplace','')}\n"
 			f"💰 Oxirgi maosh: {data.get('last_salary','')}\n"
+			f"💍 Oilaviy: {data.get('marital_status','')}\n"
+			f"⚖️ Sudlangan: {data.get('criminal_record','')}\n"
+			f"💸 Xohlagan maosh: {data.get('salary_expectation','')}\n"
 			f"💻 Komp. daraja: {data.get('computer_skill','')}\n"
 			f"💡 Tillar: {data.get('languages','')}\n"
-			f"🏥 Yangi ishda muddat: {data.get('intended_duration','')}\n"
+			f"🏥 Rejalangan muddat: {data.get('intended_duration','')}\n"
 			f"☎️ Telefon: {data.get('phone','')}\n"
 			f"🖼️ Photo file_id: {data.get('photo_file_id','')}\n"
 			f"Status: {status_text}"
