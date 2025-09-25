@@ -18,6 +18,7 @@ from aiogram.types import (
 	ReplyKeyboardRemove,
 	InlineKeyboardMarkup,
 	InlineKeyboardButton,
+	User,
 )
 from aiogram.client.default import DefaultBotProperties
 
@@ -196,7 +197,7 @@ async def on_register_callback(callback: CallbackQuery, state: FSMContext) -> No
 @router.callback_query(F.data == "confirm")
 async def on_confirm_callback(callback: CallbackQuery, state: FSMContext) -> None:
 	await callback.answer()
-	await _finalize_and_save(callback.message, state)
+	await _finalize_and_save(callback.message, state, actor_user=callback.from_user)
 
 
 @router.message(Command("myid"))
@@ -305,12 +306,13 @@ async def _show_confirmation(message: Message, state: FSMContext) -> None:
 	await message.answer(confirmation_text, reply_markup=confirmation_inline_keyboard())
 
 
-async def _finalize_and_save(message: Message, state: FSMContext) -> None:
+async def _finalize_and_save(message: Message, state: FSMContext, actor_user: Optional[User] | None = None) -> None:
 	data = await state.get_data()
+	user_obj = actor_user if actor_user is not None else message.from_user
 	row = [
 		datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
-		str(message.from_user.id if message.from_user else ""),
-		(message.from_user.username if message.from_user and message.from_user.username else ""),
+		str(user_obj.id if user_obj else ""),
+		(user_obj.username if user_obj and user_obj.username else ""),
 		data.get("full_name", ""),
 		data.get("birthdate", ""),
 		data.get("address", ""),
@@ -334,8 +336,8 @@ async def _finalize_and_save(message: Message, state: FSMContext) -> None:
 		await message.answer("✅ Tabriklayman!\n\n— Arizangiz muvaffaqiyatli qabul qilindi. Yuborgan anketangiz bilan albatta tanishamiz va sizga aloqaga chiqamiz!")
 
 	if ADMIN_CHAT_IDS:
-		user_id = message.from_user.id if message.from_user else None
-		username = f"@{message.from_user.username}" if (message.from_user and message.from_user.username) else "(no username)"
+		user_id = user_obj.id if user_obj else None
+		username = f"@{user_obj.username}" if (user_obj and user_obj.username) else "(no username)"
 		status_text = "Saved to Google Sheet" if write_ok else "FAILED to save to Google Sheet"
 		admin_text = (
 			"Yangi anketa keldi:\n"
