@@ -171,6 +171,12 @@ def registration_inline_keyboard() -> InlineKeyboardMarkup:
 	)
 
 
+def confirmation_inline_keyboard() -> InlineKeyboardMarkup:
+	return InlineKeyboardMarkup(
+		inline_keyboard=[[InlineKeyboardButton(text="Tasdiqlash", callback_data="confirm")]]
+	)
+
+
 # ==========================
 # Handlers
 # ==========================
@@ -185,6 +191,12 @@ async def on_register_callback(callback: CallbackQuery, state: FSMContext) -> No
 	await callback.answer()
 	await state.set_state(ApplicationForm.full_name)
 	await callback.message.answer("👤 Ism-sharifingizni yozing:")
+
+
+@router.callback_query(F.data == "confirm")
+async def on_confirm_callback(callback: CallbackQuery, state: FSMContext) -> None:
+	await callback.answer()
+	await _finalize_and_save(callback.message, state)
 
 
 @router.message(Command("myid"))
@@ -271,7 +283,25 @@ async def s10_computer_skill(message: Message, state: FSMContext) -> None:
 @router.message(ApplicationForm.phone)
 async def s11_phone(message: Message, state: FSMContext) -> None:
 	await state.update_data(phone=(message.text or "").strip())
-	await _finalize_and_save(message, state)
+	await _show_confirmation(message, state)
+
+
+async def _show_confirmation(message: Message, state: FSMContext) -> None:
+	data = await state.get_data()
+	confirmation_text = (
+		f"👤 Ism: {data.get('full_name', '')}\n"
+		f"🗓️ Tug'ilgan sana: {data.get('birthdate', '')}\n"
+		f"📍 Manzil: {data.get('address', '')}\n"
+		f"🏥 Xohlagan hudud: {data.get('desired_region', '')}\n"
+		f"🎓 Ma'lumoti: {data.get('education_level', '')}\n"
+		f"⏳ Umumiy tajriba: {data.get('total_experience_duration', '')}\n"
+		f"💼 Oldingi ish va muddat: {data.get('prev_job_duration_and_place', '')}\n"
+		f"💍 Oilaviy: {data.get('marital_status', '')}\n"
+		f"💸 Xohlagan maosh: {data.get('salary_expectation', '')}\n"
+		f"💻 Komp. daraja: {data.get('computer_skill', '')}\n"
+		f"☎️ Telefon: {data.get('phone', '')}"
+	)
+	await message.answer(confirmation_text, reply_markup=confirmation_inline_keyboard())
 
 
 async def _finalize_and_save(message: Message, state: FSMContext) -> None:
