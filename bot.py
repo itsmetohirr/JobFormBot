@@ -289,6 +289,7 @@ async def s11_phone(message: Message, state: FSMContext) -> None:
 async def _show_confirmation(message: Message, state: FSMContext) -> None:
 	data = await state.get_data()
 	confirmation_text = (
+		"Ma'lumotlar to'g'riligini tasdiqlang.\n\n"
 		f"👤 Ism: {data.get('full_name', '')}\n"
 		f"🗓️ Tug'ilgan sana: {data.get('birthdate', '')}\n"
 		f"📍 Manzil: {data.get('address', '')}\n"
