@@ -142,11 +142,10 @@ WELCOME_MESSAGE = (
 	"— Karyera va rivojlanish imkoniyati\n"
 	"— Haftasiga bir kun dam olish\n"
 	"— Yiliga 2 marta sayohatlar\n\n"
-	"⬇️ Pastdagi tugmani bosib, roʻyxatdan oʻtishni boshlang!\n\n"
-	"❕Iltimos ro'yxatdan o'tishda barcha ma'lumotlaringizni aniqlik bilan kiriting."
+	"❕Iltimos ro'yxatdan o'tishda barcha ma'lumotlaringizni aniqlik bilan kiriting.\n\n"
+	"📝 Ro'yxatdan o'tishni boshlaymiz!"
 )
 
-REGISTER_BUTTON_TEXT = "📝 Ro'yxatdan o'tish"
 
 
 def yes_no_keyboard() -> ReplyKeyboardMarkup:
@@ -166,16 +165,6 @@ def computer_skill_keyboard() -> ReplyKeyboardMarkup:
 	)
 
 
-def registration_inline_keyboard() -> InlineKeyboardMarkup:
-	return InlineKeyboardMarkup(
-		inline_keyboard=[[InlineKeyboardButton(text=REGISTER_BUTTON_TEXT, callback_data="register")]]
-	)
-
-
-def confirmation_inline_keyboard() -> InlineKeyboardMarkup:
-	return InlineKeyboardMarkup(
-		inline_keyboard=[[InlineKeyboardButton(text="Tasdiqlash", callback_data="confirm")]]
-	)
 
 
 # ==========================
@@ -184,20 +173,11 @@ def confirmation_inline_keyboard() -> InlineKeyboardMarkup:
 @router.message(CommandStart())
 async def handle_start(message: Message, state: FSMContext) -> None:
 	await state.clear()
-	await message.answer(WELCOME_MESSAGE, reply_markup=registration_inline_keyboard())
-
-
-@router.callback_query(F.data == "register")
-async def on_register_callback(callback: CallbackQuery, state: FSMContext) -> None:
-	await callback.answer()
+	await message.answer(WELCOME_MESSAGE)
 	await state.set_state(ApplicationForm.full_name)
-	await callback.message.answer("👤 Ism-sharifingizni yozing:")
+	await message.answer("👤 Ism-sharifingizni yozing:")
 
 
-@router.callback_query(F.data == "confirm")
-async def on_confirm_callback(callback: CallbackQuery, state: FSMContext) -> None:
-	await callback.answer()
-	await _finalize_and_save(callback.message, state, actor_user=callback.from_user)
 
 
 @router.message(Command("myid"))
@@ -207,42 +187,66 @@ async def handle_myid(message: Message) -> None:
 
 @router.message(ApplicationForm.full_name)
 async def s1_full_name(message: Message, state: FSMContext) -> None:
-	await state.update_data(full_name=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, ism-sharifingizni kiriting!")
+		return
+	await state.update_data(full_name=text)
 	await state.set_state(ApplicationForm.birthdate)
 	await message.answer("🗓️ Tugʻilgan kun/oy/yilni yozing:")
 
 
 @router.message(ApplicationForm.birthdate)
 async def s2_birthdate(message: Message, state: FSMContext) -> None:
-	await state.update_data(birthdate=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, tugʻilgan kun/oy/yilni kiriting!")
+		return
+	await state.update_data(birthdate=text)
 	await state.set_state(ApplicationForm.address)
 	await message.answer("📍 Yashash manzilingizni batafsil yozing.")
 
 
 @router.message(ApplicationForm.address)
 async def s3_address(message: Message, state: FSMContext) -> None:
-	await state.update_data(address=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, yashash manzilingizni kiriting!")
+		return
+	await state.update_data(address=text)
 	await state.set_state(ApplicationForm.desired_region)
 	await message.answer("🏥 Ishlashni xohlagan hududingizni yozing:")
 
 
 @router.message(ApplicationForm.desired_region)
 async def s4_desired_region(message: Message, state: FSMContext) -> None:
-	await state.update_data(desired_region=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, ishlashni xohlagan hududingizni kiriting!")
+		return
+	await state.update_data(desired_region=text)
 	await state.set_state(ApplicationForm.education_level)
 	await message.answer("🎓 Maʼlumotingizni yozing!\n— Oliy yoki oʻrta maxsus:")
 
 
 @router.message(ApplicationForm.education_level)
 async def s5_education(message: Message, state: FSMContext) -> None:
-	await state.update_data(education_level=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, maʼlumotingizni kiriting!")
+		return
+	await state.update_data(education_level=text)
 	await state.set_state(ApplicationForm.total_experience_duration)
 	await message.answer("⏳ Sohadagi umumiy tajribangiz muddati qancha?")
 
 
 @router.message(ApplicationForm.total_experience_duration)
 async def s6_total_exp(message: Message, state: FSMContext) -> None:
-	await state.update_data(total_experience_duration=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, umumiy tajribangizni kiriting!")
+		return
+	await state.update_data(total_experience_duration=text)
 	await state.set_state(ApplicationForm.prev_job_duration_and_place)
 	await message.answer("💼 Oldingi ish joyingizda qancha muddat ishlagansiz va u qayer edi?")
 
@@ -263,7 +267,11 @@ async def s8_marital(message: Message, state: FSMContext) -> None:
 
 @router.message(ApplicationForm.salary_expectation)
 async def s9_salary(message: Message, state: FSMContext) -> None:
-	await state.update_data(salary_expectation=(message.text or "").strip())
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, maosh kutilishingizni kiriting!")
+		return
+	await state.update_data(salary_expectation=text)
 	await state.set_state(ApplicationForm.computer_skill)
 	await message.answer(
 		"💻 Kompyuterdan foydalanish darajangiz qanday?\n\n1️⃣ Bilmayman\n2️⃣ Boshlangʻich bilaman\n3️⃣ O‘rtacha daraja\n4️⃣ Juda ham yaxshi",
@@ -274,6 +282,9 @@ async def s9_salary(message: Message, state: FSMContext) -> None:
 @router.message(ApplicationForm.computer_skill)
 async def s10_computer_skill(message: Message, state: FSMContext) -> None:
 	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, kompyuter darajangizni tanlang!")
+		return
 	mapping = {"1": "1", "2": "2", "3": "3", "4": "4", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4"}
 	value = mapping.get(text, text)
 	await state.update_data(computer_skill=value)
@@ -283,14 +294,18 @@ async def s10_computer_skill(message: Message, state: FSMContext) -> None:
 
 @router.message(ApplicationForm.phone)
 async def s11_phone(message: Message, state: FSMContext) -> None:
-	await state.update_data(phone=(message.text or "").strip())
-	await _show_confirmation(message, state)
+	text = (message.text or "").strip()
+	if not text:
+		await message.answer("❌ Iltimos, telefon raqamingizni kiriting!")
+		return
+	await state.update_data(phone=text)
+	await _show_summary_and_save(message, state)
 
 
-async def _show_confirmation(message: Message, state: FSMContext) -> None:
+async def _show_summary_and_save(message: Message, state: FSMContext) -> None:
 	data = await state.get_data()
-	confirmation_text = (
-		"Ma'lumotlar to'g'riligini tasdiqlang.\n\n"
+	summary_text = (
+		"📋 Sizning ma'lumotlaringiz:\n\n"
 		f"👤 Ism: {data.get('full_name', '')}\n"
 		f"🗓️ Tug'ilgan sana: {data.get('birthdate', '')}\n"
 		f"📍 Manzil: {data.get('address', '')}\n"
@@ -301,14 +316,42 @@ async def _show_confirmation(message: Message, state: FSMContext) -> None:
 		f"💍 Oilaviy: {data.get('marital_status', '')}\n"
 		f"💸 Xohlagan maosh: {data.get('salary_expectation', '')}\n"
 		f"💻 Komp. daraja: {data.get('computer_skill', '')}\n"
-		f"☎️ Telefon: {data.get('phone', '')}"
+		f"☎️ Telefon: {data.get('phone', '')}\n\n"
+		"💾 Ma'lumotlar saqlanmoqda..."
 	)
-	await message.answer(confirmation_text, reply_markup=confirmation_inline_keyboard())
+	await message.answer(summary_text)
+	await _finalize_and_save(message, state, actor_user=message.from_user)
 
 
 async def _finalize_and_save(message: Message, state: FSMContext, actor_user: Optional[User] | None = None) -> None:
 	data = await state.get_data()
 	user_obj = actor_user if actor_user is not None else message.from_user
+	
+	# Check if all required fields are filled
+	required_fields = [
+		"full_name", "birthdate", "address", "desired_region", 
+		"education_level", "total_experience_duration", 
+		"prev_job_duration_and_place", "marital_status", 
+		"salary_expectation", "computer_skill", "phone"
+	]
+	
+	empty_fields = []
+	for field in required_fields:
+		value = data.get(field, "").strip()
+		if not value:
+			empty_fields.append(field)
+	
+	# If any required fields are empty, don't proceed
+	if empty_fields:
+		await message.answer(
+			"❌ Iltimos, barcha maydonlarni to'ldiring!\n\n"
+			"Bo'sh qoldirilgan maydonlar:\n" + 
+			"\n".join([f"• {field}" for field in empty_fields]) +
+			"\n\nRo'yxatdan o'tishni qaytadan boshlang: /start"
+		)
+		await state.clear()
+		return
+	
 	row = [
 		datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
 		str(user_obj.id if user_obj else ""),
